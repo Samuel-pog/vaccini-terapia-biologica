@@ -16,7 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -39,6 +39,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.remember
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,6 +63,7 @@ data class VaccineResult(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VacciniApp() {
+
     var therapy by rememberSaveable {
         mutableStateOf("")
     }
@@ -73,7 +76,7 @@ fun VacciniApp() {
         mutableStateOf("")
     }
 
-    var results by rememberSaveable {
+    var results by remember {
         mutableStateOf<List<VaccineResult>>(emptyList())
     }
 
@@ -88,6 +91,14 @@ fun VacciniApp() {
         "Malattia respiratoria",
         "Gravidanza"
     )
+
+    fun resetForm() {
+        therapy = ""
+        ageText = ""
+        selectedConditions = ""
+        results = emptyList()
+        errorMessage = ""
+    }
 
     Scaffold(
         topBar = {
@@ -119,8 +130,10 @@ fun VacciniApp() {
 
             TherapyDropdown(
                 selectedTherapy = therapy,
-                onTherapySelected = {
-                    therapy = it
+                onTherapySelected = { selectedTherapy ->
+                    therapy = selectedTherapy
+                    results = emptyList()
+                    errorMessage = ""
                 }
             )
 
@@ -128,6 +141,7 @@ fun VacciniApp() {
                 value = ageText,
                 onValueChange = {
                     ageText = it
+                    results = emptyList()
                     errorMessage = ""
                 },
                 label = {
@@ -154,6 +168,8 @@ fun VacciniApp() {
                     selectedConditions = selectedConditions,
                     onConditionChanged = { selected ->
                         selectedConditions = selected
+                        results = emptyList()
+                        errorMessage = ""
                     }
                 )
             }
@@ -206,8 +222,15 @@ fun VacciniApp() {
                 )
             }
 
+            Button(
+                onClick = { resetForm() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Azzera dati")
+            }
+
             if (results.isNotEmpty()) {
-                Divider()
+                HorizontalDivider()
 
                 Text(
                     text = "Risultati",
@@ -274,7 +297,10 @@ fun TherapyDropdown(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(),
+                .menuAnchor(
+                    type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                    enabled = true
+                ),
             singleLine = true
         )
 
@@ -343,6 +369,7 @@ fun VaccineCard(result: VaccineResult) {
         "Raccomandato" -> Color(0xFF2E7D32)
         "Possibile" -> Color(0xFF1565C0)
         "Controindicato" -> Color(0xFFC62828)
+        "Da valutare" -> Color(0xFFEF6C00)
         else -> Color.DarkGray
     }
 
@@ -380,11 +407,24 @@ fun calculateRecommendations(
 ): List<VaccineResult> {
     val results = mutableListOf<VaccineResult>()
 
+    val therapyDescription = when (therapy) {
+        "Anti-TNF" ->
+            "Terapia anti-TNF selezionata: nel prototipo richiede verifica delle indicazioni vaccinali."
+        "Anti-IL17" ->
+            "Terapia anti-IL17 selezionata: nel prototipo richiede verifica delle indicazioni vaccinali."
+        "Anti-IL23" ->
+            "Terapia anti-IL23 selezionata: nel prototipo richiede verifica delle indicazioni vaccinali."
+        "Altro immunosoppressore" ->
+            "Terapia immunosoppressiva selezionata: è richiesta una valutazione clinica individuale."
+        else ->
+            "Terapia biologica selezionata."
+    }
+
     results.add(
         VaccineResult(
-            name = "Vaccino antinfluenzale",
-            status = "Raccomandato",
-            explanation = "Vaccino non vivo generalmente considerato indicato nei pazienti in terapia biologica."
+            name = "Vaccini vivi attenuati",
+            status = "Controindicato",
+            explanation = "$therapyDescription Nel prototipo i vaccini vivi attenuati vengono considerati controindicati durante terapia biologica."
         )
     )
 
