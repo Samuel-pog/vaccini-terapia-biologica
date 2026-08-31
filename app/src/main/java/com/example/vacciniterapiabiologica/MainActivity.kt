@@ -76,6 +76,10 @@ fun VacciniApp() {
         mutableStateOf<Set<String>>(emptySet())
     }
 
+    var completedVaccines by rememberSaveable {
+        mutableStateOf<Set<String>>(emptySet())
+    }
+
     var results by remember {
         mutableStateOf<List<VaccineResult>>(emptyList())
     }
@@ -91,10 +95,19 @@ fun VacciniApp() {
         "Gravidanza"
     )
 
+    val historyVaccines = listOf(
+        "Vaccino antinfluenzale",
+        "Vaccino pneumococcico",
+        "Vaccino contro herpes zoster",
+        "Vaccino COVID-19",
+        "Vaccino contro epatite B"
+    )
+
     fun resetForm() {
         therapy = ""
         ageText = ""
         selectedConditions = emptySet()
+        completedVaccines = emptySet()
         results = emptyList()
         errorMessage = ""
     }
@@ -178,6 +191,29 @@ fun VacciniApp() {
                 )
             }
 
+            Text(
+                text = "Storia vaccinale",
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "Seleziona i vaccini già effettuati, se conosciuti.",
+                fontSize = 13.sp,
+                color = Color.DarkGray
+            )
+
+            historyVaccines.forEach { vaccine ->
+                VaccinationHistoryCheckbox(
+                    vaccine = vaccine,
+                    completedVaccines = completedVaccines,
+                    onVaccinationChanged = { updatedVaccines ->
+                        completedVaccines = updatedVaccines
+                        results = emptyList()
+                        errorMessage = ""
+                    }
+                )
+            }
+
             Button(
                 onClick = {
                     val age = ageText.toIntOrNull()
@@ -203,7 +239,8 @@ fun VacciniApp() {
                             results = calculateRecommendations(
                                 therapy = therapy,
                                 age = age,
-                                conditions = selectedConditions
+                                conditions = selectedConditions,
+                                completedVaccines = completedVaccines
                             )
                         }
                     }
@@ -356,6 +393,37 @@ fun ConditionCheckbox(
 }
 
 @Composable
+fun VaccinationHistoryCheckbox(
+    vaccine: String,
+    completedVaccines: Set<String>,
+    onVaccinationChanged: (Set<String>) -> Unit
+) {
+    val isChecked = vaccine in completedVaccines
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = isChecked,
+            onCheckedChange = { checked ->
+                val updatedVaccines = completedVaccines.toMutableSet()
+
+                if (checked) {
+                    updatedVaccines.add(vaccine)
+                } else {
+                    updatedVaccines.remove(vaccine)
+                }
+
+                onVaccinationChanged(updatedVaccines)
+            }
+        )
+
+        Text(text = "$vaccine già effettuato")
+    }
+}
+
+@Composable
 fun ResultsSection(results: List<VaccineResult>) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -406,38 +474,48 @@ fun VaccineCard(result: VaccineResult) {
 fun calculateRecommendations(
     therapy: String,
     age: Int,
-    conditions: Set<String>
+    conditions: Set<String>,
+    completedVaccines: Set<String>
 ): List<VaccineResult> {
     val results = mutableListOf<VaccineResult>()
 
-    val therapyDescription = when (therapy) {
-        "Anti-TNF" ->
-            "Terapia anti-TNF selezionata: nel prototipo richiede verifica delle indicazioni vaccinali."
-        "Anti-IL17" ->
-            "Terapia anti-IL17 selezionata: nel prototipo richiede verifica delle indicazioni vaccinali."
-        "Anti-IL23" ->
-            "Terapia anti-IL23 selezionata: nel prototipo richiede verifica delle indicazioni vaccinali."
-        "Altro immunosoppressore" ->
-            "Terapia immunosoppressiva selezionata: è richiesta una valutazione clinica individuale."
-        else ->
-            "Terapia biologica selezionata."
+    if ("Vaccino antinfluenzale" in completedVaccines) {
+        results.add(
+            VaccineResult(
+                name = "Vaccino antinfluenzale",
+                status = "Da valutare",
+                explanation = "Il vaccino risulta già effettuato. Verificare la data dell'ultima dose e il calendario vaccinale aggiornato."
+            )
+        )
+    } else {
+        results.add(
+            VaccineResult(
+                name = "Vaccino antinfluenzale",
+                status = "Raccomandato",
+                explanation = "Vaccino non vivo generalmente considerato indicato nel prototipo per pazienti in terapia biologica."
+            )
+        )
     }
 
-    results.add(
-        VaccineResult(
-            name = "Vaccini vivi attenuati",
-            status = "Controindicato",
-            explanation = "$therapyDescription Nel prototipo i vaccini vivi attenuati vengono considerati controindicati durante terapia biologica."
-        )
-    )
+    val hasPneumococcalRisk =
+        age >= 65 ||
+                "Malattia respiratoria" in conditions ||
+                "Malattia cardiaca" in conditions
 
-    if (
-        age >= 65 || "Malattia respiratoria" in conditions || "Malattia cardiaca" in conditions) {
+    if ("Vaccino pneumococcico" in completedVaccines) {
+        results.add(
+            VaccineResult(
+                name = "Vaccino pneumococcico",
+                status = "Da valutare",
+                explanation = "Il vaccino risulta già effettuato. Verificare il numero di dosi e le tempistiche previste."
+            )
+        )
+    } else if (hasPneumococcalRisk) {
         results.add(
             VaccineResult(
                 name = "Vaccino pneumococcico",
                 status = "Raccomandato",
-                explanation = "Raccomandato in presenza di età avanzata o di alcune condizioni cliniche."
+                explanation = "Raccomandato nel prototipo per età pari o superiore a 65 anni o per presenza di patologie cardiache o respiratorie."
             )
         )
     } else {
@@ -445,7 +523,7 @@ fun calculateRecommendations(
             VaccineResult(
                 name = "Vaccino pneumococcico",
                 status = "Possibile",
-                explanation = "Può essere valutato in base al profilo clinico e alla storia vaccinale."
+                explanation = "Può essere valutato in base al profilo clinico, alla storia vaccinale e alle indicazioni aggiornate."
             )
         )
     }
@@ -454,16 +532,46 @@ fun calculateRecommendations(
         VaccineResult(
             name = "Vaccini vivi attenuati",
             status = "Controindicato",
-            explanation = "Nel prototipo vengono considerati controindicati durante terapia biologica."
+            explanation = "Nel prototipo didattico vengono considerati controindicati durante terapia biologica. La valutazione clinica reale deve essere effettuata dal medico."
         )
     )
 
     if (age >= 50) {
+        if ("Vaccino contro herpes zoster" in completedVaccines) {
+            results.add(
+                VaccineResult(
+                    name = "Vaccino contro herpes zoster",
+                    status = "Da valutare",
+                    explanation = "Il vaccino risulta già effettuato. Verificare tipo di vaccino, dosi ricevute e tempistiche."
+                )
+            )
+        } else {
+            results.add(
+                VaccineResult(
+                    name = "Vaccino contro herpes zoster",
+                    status = "Possibile",
+                    explanation = "Può essere valutato nel prototipo in base all'età, alle condizioni cliniche e al tipo di vaccino disponibile."
+                )
+            )
+        }
+    }
+
+    if ("Vaccino COVID-19" !in completedVaccines) {
         results.add(
             VaccineResult(
-                name = "Vaccino contro herpes zoster",
+                name = "Vaccino COVID-19",
                 status = "Possibile",
-                explanation = "La valutazione dipende dall'età, dalle condizioni cliniche e dal tipo di vaccino."
+                explanation = "Nel prototipo richiede verifica del calendario vaccinale aggiornato e delle eventuali dosi precedenti."
+            )
+        )
+    }
+
+    if ("Vaccino contro epatite B" !in completedVaccines) {
+        results.add(
+            VaccineResult(
+                name = "Vaccino contro epatite B",
+                status = "Possibile",
+                explanation = "Può essere valutato in base ai fattori di rischio, alla documentazione vaccinale e alla situazione clinica."
             )
         )
     }
@@ -473,7 +581,7 @@ fun calculateRecommendations(
             VaccineResult(
                 name = "Vaccini in gravidanza",
                 status = "Da valutare",
-                explanation = "È necessaria una valutazione specifica da parte del medico."
+                explanation = "È necessaria una valutazione clinica specifica della gravidanza e del calendario vaccinale."
             )
         )
     }
