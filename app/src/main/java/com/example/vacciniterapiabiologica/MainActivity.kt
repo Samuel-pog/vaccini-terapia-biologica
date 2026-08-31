@@ -479,12 +479,34 @@ fun calculateRecommendations(
 ): List<VaccineResult> {
     val results = mutableListOf<VaccineResult>()
 
+    val therapyExplanation = when (therapy) {
+        "Anti-TNF" -> {
+            "Terapia anti-TNF selezionata. Nel prototipo è trattata come terapia immunomodulante che richiede verifica delle vaccinazioni non vive e prudenza per i vaccini vivi attenuati."
+        }
+
+        "Anti-IL17" -> {
+            "Terapia anti-IL17 selezionata. Nel prototipo è trattata come terapia immunomodulante che richiede verifica del calendario vaccinale."
+        }
+
+        "Anti-IL23" -> {
+            "Terapia anti-IL23 selezionata. Nel prototipo è trattata come terapia immunomodulante che richiede verifica del calendario vaccinale."
+        }
+
+        "Altro immunosoppressore" -> {
+            "Altro immunosoppressore selezionato. Nel prototipo è richiesta una valutazione clinica più cauta delle vaccinazioni e delle tempistiche."
+        }
+
+        else -> {
+            "Terapia biologica selezionata. Verificare il piano vaccinale con il medico."
+        }
+    }
+
     if ("Vaccino antinfluenzale" in completedVaccines) {
         results.add(
             VaccineResult(
                 name = "Vaccino antinfluenzale",
                 status = "Da valutare",
-                explanation = "Il vaccino risulta già effettuato. Verificare la data dell'ultima dose e il calendario vaccinale aggiornato."
+                explanation = "Il vaccino risulta già effettuato. Verificare la data dell'ultima dose e il calendario vaccinale aggiornato. $therapyExplanation"
             )
         )
     } else {
@@ -492,7 +514,7 @@ fun calculateRecommendations(
             VaccineResult(
                 name = "Vaccino antinfluenzale",
                 status = "Raccomandato",
-                explanation = "Vaccino non vivo generalmente considerato indicato nel prototipo per pazienti in terapia biologica."
+                explanation = "Vaccino non vivo generalmente considerato indicato nel prototipo per pazienti in terapia biologica. $therapyExplanation"
             )
         )
     }
@@ -532,9 +554,19 @@ fun calculateRecommendations(
         VaccineResult(
             name = "Vaccini vivi attenuati",
             status = "Controindicato",
-            explanation = "Nel prototipo didattico vengono considerati controindicati durante terapia biologica. La valutazione clinica reale deve essere effettuata dal medico."
+            explanation = "Nel prototipo didattico vengono considerati controindicati durante terapia biologica. $therapyExplanation La valutazione clinica reale deve essere effettuata dal medico."
         )
     )
+
+    if (therapy == "Altro immunosoppressore") {
+        results.add(
+            VaccineResult(
+                name = "Pianificazione vaccinale",
+                status = "Da valutare",
+                explanation = "Il tipo di immunosoppressore non è specificato nel prototipo. È necessario verificare farmaco, dose, durata della terapia, vaccinazioni precedenti e tempistica con il medico."
+            )
+        )
+    }
 
     if (age >= 50) {
         if ("Vaccino contro herpes zoster" in completedVaccines) {
