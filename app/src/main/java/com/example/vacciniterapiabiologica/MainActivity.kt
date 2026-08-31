@@ -73,7 +73,7 @@ fun VacciniApp() {
     }
 
     var selectedConditions by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf<Set<String>>(emptySet())
     }
 
     var results by remember {
@@ -85,7 +85,6 @@ fun VacciniApp() {
     }
 
     val conditions = listOf(
-        "Nessuna",
         "Diabete",
         "Malattia cardiaca",
         "Malattia respiratoria",
@@ -95,7 +94,7 @@ fun VacciniApp() {
     fun resetForm() {
         therapy = ""
         ageText = ""
-        selectedConditions = ""
+        selectedConditions = emptySet()
         results = emptyList()
         errorMessage = ""
     }
@@ -161,13 +160,18 @@ fun VacciniApp() {
                 text = "Condizioni cliniche",
                 fontWeight = FontWeight.Bold
             )
+            Text(
+                text = "Se non sono presenti condizioni cliniche, lascia tutte le opzioni non selezionate.",
+                fontSize = 13.sp,
+                color = Color.DarkGray
+            )
 
             conditions.forEach { condition ->
                 ConditionCheckbox(
                     condition = condition,
                     selectedConditions = selectedConditions,
-                    onConditionChanged = { selected ->
-                        selectedConditions = selected
+                    onConditionChanged = { updatedConditions ->
+                        selectedConditions = updatedConditions
                         results = emptyList()
                         errorMessage = ""
                     }
@@ -194,17 +198,12 @@ fun VacciniApp() {
                             results = emptyList()
                         }
 
-                        selectedConditions.isBlank() -> {
-                            errorMessage = "Seleziona almeno una condizione clinica."
-                            results = emptyList()
-                        }
-
                         else -> {
                             errorMessage = ""
                             results = calculateRecommendations(
                                 therapy = therapy,
                                 age = age,
-                                condition = selectedConditions
+                                conditions = selectedConditions
                             )
                         }
                     }
@@ -328,10 +327,10 @@ fun TherapyDropdown(
 @Composable
 fun ConditionCheckbox(
     condition: String,
-    selectedConditions: String,
-    onConditionChanged: (String) -> Unit
+    selectedConditions: Set<String>,
+    onConditionChanged: (Set<String>) -> Unit
 ) {
-    val isChecked = selectedConditions == condition
+    val isChecked = condition in selectedConditions
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -339,12 +338,16 @@ fun ConditionCheckbox(
     ) {
         Checkbox(
             checked = isChecked,
-            onCheckedChange = {
-                if (it) {
-                    onConditionChanged(condition)
+            onCheckedChange = { checked ->
+                val updatedConditions = selectedConditions.toMutableSet()
+
+                if (checked) {
+                    updatedConditions.add(condition)
                 } else {
-                    onConditionChanged("")
+                    updatedConditions.remove(condition)
                 }
+
+                onConditionChanged(updatedConditions)
             }
         )
 
@@ -403,7 +406,7 @@ fun VaccineCard(result: VaccineResult) {
 fun calculateRecommendations(
     therapy: String,
     age: Int,
-    condition: String
+    conditions: Set<String>
 ): List<VaccineResult> {
     val results = mutableListOf<VaccineResult>()
 
@@ -428,7 +431,8 @@ fun calculateRecommendations(
         )
     )
 
-    if (age >= 65 || condition == "Malattia respiratoria" || condition == "Malattia cardiaca") {
+    if (
+        age >= 65 || "Malattia respiratoria" in conditions || "Malattia cardiaca" in conditions) {
         results.add(
             VaccineResult(
                 name = "Vaccino pneumococcico",
@@ -464,7 +468,7 @@ fun calculateRecommendations(
         )
     }
 
-    if (condition == "Gravidanza") {
+    if ("Gravidanza" in conditions) {
         results.add(
             VaccineResult(
                 name = "Vaccini in gravidanza",
