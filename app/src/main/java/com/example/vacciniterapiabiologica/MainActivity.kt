@@ -279,6 +279,20 @@ fun VacciniApp() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
+                    text = "Fonti di riferimento\n" +
+                            "• EULAR recommendations for vaccination in autoimmune diseases\n" +
+                            "• CDC Adult Immunization Schedule\n" +
+                            "• Linee guida nazionali sulle vaccinazioni",
+                    modifier = Modifier.padding(16.dp),
+                    color = Color.DarkGray,
+                    fontSize = 13.sp
+                )
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
                     text = "Avvertenza: questa applicazione è un prototipo didattico e non sostituisce le linee guida ufficiali né la valutazione di un medico.",
                     modifier = Modifier.padding(16.dp),
                     color = Color.DarkGray,
