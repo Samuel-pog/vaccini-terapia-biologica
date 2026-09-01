@@ -225,7 +225,7 @@ fun VacciniApp() {
                             results = emptyList()
                         }
 
-                        age < 0 || age > 120 -> {
+                        age !in 0..120 -> {
                             errorMessage = "Inserisci un'età compresa tra 0 e 120 anni."
                             results = emptyList()
                         }
