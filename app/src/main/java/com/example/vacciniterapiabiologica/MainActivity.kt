@@ -43,6 +43,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import com.example.vacciniterapiabiologica.domain.calculateRecommendations
 import com.example.vacciniterapiabiologica.model.VaccineResult
+import com.example.vacciniterapiabiologica.model.ClinicalCondition
+import com.example.vacciniterapiabiologica.model.RecommendationStatus
+import com.example.vacciniterapiabiologica.model.TherapyType
+import com.example.vacciniterapiabiologica.model.VaccineType
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,7 +65,7 @@ class MainActivity : ComponentActivity() {
 fun VacciniApp() {
 
     var therapy by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf<TherapyType?>(null)
     }
 
     var ageText by rememberSaveable {
@@ -69,11 +73,12 @@ fun VacciniApp() {
     }
 
     var selectedConditions by rememberSaveable {
-        mutableStateOf<Set<String>>(emptySet())
+        mutableStateOf<Set<ClinicalCondition>>(emptySet())
     }
 
+
     var completedVaccines by rememberSaveable {
-        mutableStateOf<Set<String>>(emptySet())
+        mutableStateOf<Set<VaccineType>>(emptySet())
     }
 
     var results by remember {
@@ -84,23 +89,18 @@ fun VacciniApp() {
         mutableStateOf("")
     }
 
-    val conditions = listOf(
-        "Diabete",
-        "Malattia cardiaca",
-        "Malattia respiratoria",
-        "Gravidanza"
-    )
+    val conditions = ClinicalCondition.entries
 
     val historyVaccines = listOf(
-        "Vaccino antinfluenzale",
-        "Vaccino pneumococcico",
-        "Vaccino contro herpes zoster",
-        "Vaccino COVID-19",
-        "Vaccino contro epatite B"
+        VaccineType.ANTINFLUENZALE,
+        VaccineType.PNEUMOCOCCICO,
+        VaccineType.HERPES_ZOSTER,
+        VaccineType.COVID_19,
+        VaccineType.EPATITE_B
     )
 
     fun resetForm() {
-        therapy = ""
+        therapy = null
         ageText = ""
         selectedConditions = emptySet()
         completedVaccines = emptySet()
@@ -215,7 +215,7 @@ fun VacciniApp() {
                     val age = ageText.toIntOrNull()
 
                     when {
-                        therapy.isBlank() -> {
+                        therapy == null -> {
                             errorMessage = "Seleziona una terapia biologica."
                             results = emptyList()
                         }
@@ -233,7 +233,7 @@ fun VacciniApp() {
                         else -> {
                             errorMessage = ""
                             results = calculateRecommendations(
-                                therapy = therapy,
+                                therapy = requireNotNull(therapy),
                                 age = age,
                                 conditions = selectedConditions,
                                 completedVaccines = completedVaccines
@@ -292,19 +292,14 @@ fun VacciniApp() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TherapyDropdown(
-    selectedTherapy: String,
-    onTherapySelected: (String) -> Unit
+    selectedTherapy: TherapyType?,
+    onTherapySelected: (TherapyType) -> Unit
 ) {
     var expanded by rememberSaveable {
         mutableStateOf(false)
     }
 
-    val therapies = listOf(
-        "Anti-TNF",
-        "Anti-IL17",
-        "Anti-IL23",
-        "Altro immunosoppressore"
-    )
+    val therapies = TherapyType.entries
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -313,7 +308,7 @@ fun TherapyDropdown(
         }
     ) {
         OutlinedTextField(
-            value = selectedTherapy,
+            value = selectedTherapy?.displayName.orEmpty(),
             onValueChange = {},
             readOnly = true,
             label = {
@@ -345,7 +340,7 @@ fun TherapyDropdown(
             therapies.forEach { therapy ->
                 DropdownMenuItem(
                     text = {
-                        Text(therapy)
+                        Text(therapy.displayName)
                     },
                     onClick = {
                         onTherapySelected(therapy)
@@ -359,9 +354,9 @@ fun TherapyDropdown(
 
 @Composable
 fun ConditionCheckbox(
-    condition: String,
-    selectedConditions: Set<String>,
-    onConditionChanged: (Set<String>) -> Unit
+    condition: ClinicalCondition,
+    selectedConditions: Set<ClinicalCondition>,
+    onConditionChanged: (Set<ClinicalCondition>) -> Unit
 ) {
     val isChecked = condition in selectedConditions
 
@@ -384,15 +379,15 @@ fun ConditionCheckbox(
             }
         )
 
-        Text(text = condition)
+        Text(text = condition.displayName)
     }
 }
 
 @Composable
 fun VaccinationHistoryCheckbox(
-    vaccine: String,
-    completedVaccines: Set<String>,
-    onVaccinationChanged: (Set<String>) -> Unit
+    vaccine: VaccineType,
+    completedVaccines: Set<VaccineType>,
+    onVaccinationChanged: (Set<VaccineType>) -> Unit
 ) {
     val isChecked = vaccine in completedVaccines
 
@@ -415,7 +410,7 @@ fun VaccinationHistoryCheckbox(
             }
         )
 
-        Text(text = "$vaccine già effettuato")
+        Text(text = "${vaccine.displayName} già effettuato")
     }
 }
 
@@ -433,11 +428,10 @@ fun ResultsSection(results: List<VaccineResult>) {
 @Composable
 fun VaccineCard(result: VaccineResult) {
     val statusColor = when (result.status) {
-        "Raccomandato" -> Color(0xFF2E7D32)
-        "Possibile" -> Color(0xFF1565C0)
-        "Controindicato" -> Color(0xFFC62828)
-        "Da valutare" -> Color(0xFFEF6C00)
-        else -> Color.DarkGray
+        RecommendationStatus.RACCOMANDATO -> Color(0xFF2E7D32)
+        RecommendationStatus.POSSIBILE -> Color(0xFF1565C0)
+        RecommendationStatus.CONTROINDICATO -> Color(0xFFC62828)
+        RecommendationStatus.DA_VALUTARE -> Color(0xFFEF6C00)
     }
 
     Card(
@@ -448,13 +442,13 @@ fun VaccineCard(result: VaccineResult) {
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = result.name,
+                text = result.vaccine.displayName,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
 
             Text(
-                text = result.status,
+                text = result.status.displayName,
                 color = statusColor,
                 fontWeight = FontWeight.Bold
             )

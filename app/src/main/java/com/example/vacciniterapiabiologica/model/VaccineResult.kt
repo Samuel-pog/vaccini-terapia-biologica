@@ -1,7 +1,6 @@
 package com.example.vacciniterapiabiologica.model
-
 data class VaccineResult(
-    val name: String,
-    val status: String,
+    val vaccine: VaccineType,
+    val status: RecommendationStatus,
     val explanation: String
 )
